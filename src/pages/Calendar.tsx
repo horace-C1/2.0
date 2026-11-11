@@ -139,6 +139,16 @@ useEffect(() => {
     const calendar = weekCalendarRef.current;
     calendar.scrollTop = 8 * 60;
     const timeColumn = calendar.querySelector<HTMLElement>(".week-time-column");
+
+    if (viewMode === "week" && window.matchMedia("(max-width: 620px)").matches) {
+      const today = getDateString(new Date());
+      const todayColumn = Array.from(calendar.querySelectorAll<HTMLElement>(".week-day"))
+        .find((day) => day.dataset.date === today);
+      if (todayColumn) {
+        calendar.scrollLeft = Math.max(0, todayColumn.offsetLeft - (timeColumn?.offsetWidth ?? 0));
+      }
+    }
+
     if (timeColumn) timeColumn.style.transform = `translateX(${calendar.scrollLeft}px)`;
   }
 }, [viewMode]);

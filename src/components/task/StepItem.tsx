@@ -12,6 +12,8 @@ interface StepItemProps {
   onDeleteStep: (id: string) => void;
 
   onAddStep?: () => void;
+
+  autoFocusAllowed?: boolean;
 }
 
 
@@ -20,6 +22,7 @@ export default function StepItem({
   onUpdateStep,
   onDeleteStep,
   onAddStep,
+  autoFocusAllowed = true,
 }: StepItemProps) {
 
 
@@ -28,7 +31,7 @@ export default function StepItem({
 
   useEffect(() => {
 
-  if(step.title === "") {
+  if(step.title === "" && autoFocusAllowed) {
 
     inputRef.current?.focus();
 

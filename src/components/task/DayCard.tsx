@@ -11,12 +11,15 @@ interface DayCardProps {
     updatedDay: Partial<Day>
   ) => void;
 
+  autoFocusAllowed: boolean;
+
 }
 
 
 export default function DayCard({
   day,
   onUpdateDay,
+  autoFocusAllowed,
 }: DayCardProps) {
 
 
@@ -91,6 +94,7 @@ export default function DayCard({
           <StepItem
             key={step.id}
             step={step}
+            autoFocusAllowed={autoFocusAllowed}
             onUpdateStep={
               updateStep
             }

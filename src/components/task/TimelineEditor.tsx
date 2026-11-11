@@ -12,6 +12,8 @@ interface TimelineEditorProps {
 
   startDate: string;
 
+  autoFocusAllowed?: boolean;
+
   onAddDay?: () => void;
 
   onUpdateTimeline: (
@@ -27,6 +29,8 @@ export default function TimelineEditor({
   timeline,
 
   startDate,
+
+  autoFocusAllowed = true,
 
   onAddDay,
 
@@ -253,6 +257,8 @@ export default function TimelineEditor({
               <DayCard
 
                 day={day}
+
+                autoFocusAllowed={autoFocusAllowed}
 
                 onUpdateDay={
                   updateDay

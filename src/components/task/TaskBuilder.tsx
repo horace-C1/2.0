@@ -157,6 +157,14 @@ useState<Task>(
  )
 );
 
+const [autoFocusAllowed, setAutoFocusAllowed] = useState(
+  () => !window.matchMedia("(max-width: 620px)").matches
+);
+
+useEffect(() => {
+  setAutoFocusAllowed(true);
+}, []);
+
 
   const updateTask = (
     update: Partial<Task>
@@ -338,6 +346,8 @@ const handleShortcut = (event: React.KeyboardEvent<HTMLDivElement>) => {
         timeline={
           task.timeline
         }
+
+        autoFocusAllowed={autoFocusAllowed}
 
         startDate={task.startDate}
 
