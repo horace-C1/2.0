@@ -251,12 +251,17 @@ hasVisibleStepsInDay(
 
 
       <h1>
-        Daily
+        Daily Tasks
       </h1>
 
 
       <h2>
-        {today}
+        {new Date(`${today}T00:00:00`).toLocaleDateString(undefined, {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+          year: "numeric",
+        })}
       </h2>
 
 
@@ -327,6 +332,7 @@ hasVisibleStepsInDay(
       <>
         <TimelineEditor
           timeline={editingTask.timeline}
+          startDate={editingTask.startDate}
           onUpdateTimeline={(timeline) => {
 
             setEditingTask({
@@ -415,10 +421,6 @@ const isVisibleDate =
             <div
               key={day.id}
             >
-
-              <h3>
-                Day {day.offset + 1}
-              </h3>
 
               {
                 day.steps

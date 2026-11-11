@@ -68,3 +68,10 @@ export function saveProject(
   saveProjects(projects);
 
 }
+
+export function updateProject(project: Project): void {
+  const projects = getProjects().map((item) =>
+    item.id === project.id ? project : item
+  );
+  saveProjects(projects);
+}

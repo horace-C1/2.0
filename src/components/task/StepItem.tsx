@@ -40,7 +40,7 @@ export default function StepItem({
     e: React.KeyboardEvent<HTMLInputElement>
   ) => {
 
-    if (e.key === "Enter") {
+    if (e.key === "Enter" && !e.ctrlKey && !e.shiftKey && !e.metaKey) {
 
       e.preventDefault();
 

@@ -7,6 +7,8 @@ interface ProjectTaskListProps {
 
   selectedProjectId: string;
 
+  selectedTaskId: string | null;
+
   onSelectTask: (
     task: Task
   ) => void;
@@ -20,6 +22,8 @@ export default function ProjectTaskList({
   tasks,
 
   selectedProjectId,
+
+  selectedTaskId,
 
   onSelectTask,
 
@@ -90,7 +94,8 @@ export default function ProjectTaskList({
 
               key={task.id}
 
-              className="project-task-item"
+              className={`project-task-item${selectedTaskId === task.id ? " active" : ""}`}
+              aria-pressed={selectedTaskId === task.id}
 
               onClick={() =>
                 onSelectTask(task)

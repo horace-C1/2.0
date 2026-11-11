@@ -9,7 +9,7 @@ export type CalendarEvent = {
 
   date: string;
 
-  time: string;
+  time: string | null;
 
   duration: number;
 };

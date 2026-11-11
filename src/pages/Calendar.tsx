@@ -1,17 +1,40 @@
 import "../style/calendar.css";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 import type { CalendarEvent } from "../type/calendar";
-import type { Task } from "../type/task";
 
 import {
   getCalendarEvents,
+  updateCalendarEvent,
 } from "../services/calendarStorage";
 
 import {
   getTasks,
 } from "../services/taskStorage";
+import { getProjects, updateProject } from "../services/projectStorage";
+
+const PROJECT_COLORS = [
+  { name: "Blue", color: "#bfdbfe" },
+  { name: "Green", color: "#bbf7d0" },
+  { name: "Yellow", color: "#fde68a" },
+  { name: "Red", color: "#fecaca" },
+  { name: "Purple", color: "#ddd6fe" },
+  { name: "Pink", color: "#fbcfe8" },
+  { name: "Cyan", color: "#a5f3fc" },
+];
+
+const formatClockTime = (minutes: number) =>
+  new Date(2000, 0, 1, 0, minutes).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+
+const formatTimeRange = (time: string, duration: number) => {
+  const [hour, minute] = time.split(":").map(Number);
+  const start = hour * 60 + minute;
+  return `${formatClockTime(start)}–${formatClockTime(start + duration)}`;
+};
 
 
 const getDateString = (date: Date) => {
@@ -77,11 +100,18 @@ const getWeekDays = (
 
 export default function Calendar() {
 
+  const weekCalendarRef = useRef<HTMLDivElement | null>(null);
+
   const [expandedDate, setExpandedDate] =
     useState<string | null>(null);
 
   const [viewMode, setViewMode] =
-    useState<"month" | "week">("week");
+    useState<"month" | "week" | "day">(() =>
+      window.matchMedia("(max-width: 620px)").matches ? "day" : "week"
+    );
+
+  const [selectedEventId, setSelectedEventId] =
+    useState<string | null>(null);
 
   const [currentDate, setCurrentDate] =
     useState(
@@ -96,6 +126,93 @@ const resizeStartY =
 
 const resizeStartDuration =
   useRef<number>(60);
+
+const [, forceCalendarRefresh] = useState(0);
+const [projectColorMenu, setProjectColorMenu] = useState<{
+  projectId: string;
+  x: number;
+  y: number;
+} | null>(null);
+
+useEffect(() => {
+  if (viewMode !== "month" && weekCalendarRef.current) {
+    const calendar = weekCalendarRef.current;
+    calendar.scrollTop = 8 * 60;
+    const timeColumn = calendar.querySelector<HTMLElement>(".week-time-column");
+    if (timeColumn) timeColumn.style.transform = `translateX(${calendar.scrollLeft}px)`;
+  }
+}, [viewMode]);
+
+const projects = getProjects();
+
+const getProjectColor = (projectId: string) => {
+  const project = projects.find((item) => item.id === projectId);
+  if (project?.color) return project.color;
+  const hash = [...projectId].reduce((value, character) => value + character.charCodeAt(0), 0);
+  const projectIndex = projects.findIndex((item) => item.id === projectId);
+  return PROJECT_COLORS[(projectIndex >= 0 ? projectIndex : hash) % PROJECT_COLORS.length].color;
+};
+
+const openProjectColorMenu = (e: React.MouseEvent, projectId: string) => {
+  e.preventDefault();
+  e.stopPropagation();
+  setProjectColorMenu({
+    projectId,
+    x: Math.min(e.clientX, window.innerWidth - 230),
+    y: Math.min(e.clientY, window.innerHeight - 100),
+  });
+};
+
+const changeProjectColor = (color: string) => {
+  if (!projectColorMenu) return;
+  const project = projects.find((item) => item.id === projectColorMenu.projectId);
+  if (!project) return;
+  updateProject({ ...project, color });
+  setProjectColorMenu(null);
+  forceCalendarRefresh((value) => value + 1);
+};
+
+const startMove = (
+  e: React.PointerEvent,
+  event: CalendarEvent
+) => {
+  if ((e.target as HTMLElement).closest(".week-event-resize")) return;
+  if (e.button !== 0) return;
+  setSelectedEventId(event.id);
+  e.preventDefault();
+  e.stopPropagation();
+
+  const grabOffsetY = e.clientY - (e.currentTarget as HTMLElement).getBoundingClientRect().top;
+
+  const handlePointerMove = (moveEvent: PointerEvent) => {
+    const underPointer = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY);
+    const dayBody = underPointer?.closest<HTMLElement>(".week-day-body");
+    const destinationDay = dayBody?.closest<HTMLElement>(".week-day");
+    const date = destinationDay?.dataset.date;
+    if (!dayBody || !date) return;
+
+    const laneHeight = 44;
+    const localY = moveEvent.clientY - dayBody.getBoundingClientRect().top + dayBody.scrollTop;
+    if (localY < laneHeight) {
+      updateCalendarEvent({ ...event, date, time: null });
+    } else {
+      const latestEvent = getCalendarEvents().find((item) => item.id === event.id) ?? event;
+      const minute = Math.max(0, Math.min(1440 - (latestEvent.duration ?? 60),
+        Math.round((localY - laneHeight - grabOffsetY) / 15) * 15));
+      const time = `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
+      updateCalendarEvent({ ...event, date, time });
+    }
+    forceCalendarRefresh((value) => value + 1);
+  };
+
+  const handlePointerUp = () => {
+    window.removeEventListener("pointermove", handlePointerMove);
+    window.removeEventListener("pointerup", handlePointerUp);
+  };
+
+  window.addEventListener("pointermove", handlePointerMove);
+  window.addEventListener("pointerup", handlePointerUp);
+};
 
 
   const tasks =
@@ -171,7 +288,7 @@ const resizeStartDuration =
 
       .filter(
         (event) =>
-          event.date === date
+          event.date === date && event.time !== null
       )
 
       .map(
@@ -199,10 +316,14 @@ const resizeStartDuration =
           item !== null
       )
 
+      .filter(
+        (item) => item.event.time !== null
+      )
+
       .sort(
         (a, b) =>
-          a.event.time.localeCompare(
-            b.event.time
+          (a.event.time ?? "").localeCompare(
+            b.event.time ?? ""
           )
       );
 
@@ -214,6 +335,7 @@ const startResize = (
 ) => {
 
   e.stopPropagation();
+  setSelectedEventId(event.id);
 
   resizeStartY.current =
     e.clientY;
@@ -241,12 +363,12 @@ const startResize = (
           15
         ) * 15;
 
-      const newDuration =
-        Math.max(
-          15,
-          resizeStartDuration.current +
-          deltaMinutes
-        );
+      const [startHour, startMinute] = (event.time ?? "00:00").split(":").map(Number);
+      const maxDuration = Math.max(15, 1440 - (startHour * 60 + startMinute));
+      const newDuration = Math.min(
+        maxDuration,
+        Math.max(15, resizeStartDuration.current + deltaMinutes)
+      );
 
       const updatedEvent = {
         ...event,
@@ -323,7 +445,7 @@ const getEventLayout = (
         hour,
         minute,
       ] =
-        event.event.time
+        event.event.time!
           .split(":")
           .map(Number);
 
@@ -342,6 +464,7 @@ const getEventLayout = (
         end,
         column: 0,
         totalColumns: 1,
+        columnSpan: 1,
       };
 
     })
@@ -352,34 +475,22 @@ const getEventLayout = (
 
 
   const groups: typeof layouts[] = [];
+  let currentGroup: typeof layouts = [];
+  let groupEnd = -Infinity;
 
-
-  // Group events that overlap
+  // Split into connected overlap groups. Touching endpoints do not overlap.
   layouts.forEach((event) => {
-
-    let group =
-      groups.find(
-        (existingGroup) =>
-          existingGroup.some(
-            (existing) =>
-              event.start < existing.end &&
-              event.end > existing.start
-          )
-      );
-
-
-    if (!group) {
-
-      group = [];
-
-      groups.push(group);
-
+    if (currentGroup.length && event.start >= groupEnd) {
+      groups.push(currentGroup);
+      currentGroup = [];
+      groupEnd = -Infinity;
     }
 
-
-    group.push(event);
-
+    currentGroup.push(event);
+    groupEnd = Math.max(groupEnd, event.end);
   });
+
+  if (currentGroup.length) groups.push(currentGroup);
 
 
   // Assign each event to a column
@@ -434,6 +545,18 @@ const getEventLayout = (
 
       event.totalColumns =
         totalColumns;
+
+      // Let an event use adjacent lanes when none of their events collide
+      // with it for the full duration.
+      let span = 1;
+      for (let columnIndex = event.column + 1; columnIndex < totalColumns; columnIndex++) {
+        const hasConflict = columns[columnIndex]?.some(
+          (existing) => event.start < existing.end && event.end > existing.start
+        );
+        if (hasConflict) break;
+        span++;
+      }
+      event.columnSpan = span;
 
     });
 
@@ -552,6 +675,16 @@ const getEventLayout = (
     );
 
   };
+
+  const previousDay = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() - 1));
+  };
+
+  const nextDay = () => {
+    setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth(), currentDate.getDate() + 1));
+  };
+
+  const visibleWeekDays = viewMode === "day" ? [currentDate] : getWeekDays(currentDate);
 
 
   /*
@@ -694,7 +827,7 @@ const getEventLayout = (
           onClick={
             viewMode === "month"
               ? previousMonth
-              : previousWeek
+              : viewMode === "day" ? previousDay : previousWeek
           }
         >
           ←
@@ -706,12 +839,20 @@ const getEventLayout = (
           onClick={
             viewMode === "month"
               ? nextMonth
-              : nextWeek
+              : viewMode === "day" ? nextDay : nextWeek
           }
         >
           →
         </button>
 
+
+        <button
+          type="button"
+          className={viewMode === "day" ? "active calendar-day-toggle" : "calendar-day-toggle"}
+          onClick={() => setViewMode("day")}
+        >
+          Day
+        </button>
 
         <button
           type="button"
@@ -898,6 +1039,8 @@ className={[
                                     ? "calendar-task overdue"
                                     : "calendar-task"
                                 }
+                                style={{ backgroundColor: getProjectColor(task.projectId) }}
+                                onContextMenu={(e) => openProjectColorMenu(e, task.projectId)}
                               >
 
                                 <div
@@ -933,7 +1076,15 @@ className={[
      WEEK VIEW
   ========================= */
 
-  <div className="week-calendar">
+  <div
+    className={`week-calendar${viewMode === "day" ? " day-calendar" : ""}`}
+    ref={weekCalendarRef}
+    onPointerDown={() => setSelectedEventId(null)}
+    onScroll={(e) => {
+      const timeColumn = e.currentTarget.querySelector<HTMLElement>(".week-time-column");
+      if (timeColumn) timeColumn.style.transform = `translateX(${e.currentTarget.scrollLeft}px)`;
+    }}
+  >
 
     {/* =========================
         Time column
@@ -941,7 +1092,9 @@ className={[
 
     <div className="week-time-column">
 
-      <div className="week-header-spacer" />
+      <div className="week-header-spacer">Date</div>
+
+      <div className="week-unscheduled-label">UnSch.</div>
 
       {
         Array.from(
@@ -982,9 +1135,7 @@ className={[
     ========================= */}
 
     {
-      getWeekDays(
-        currentDate
-      ).map(
+      visibleWeekDays.map(
         (date) => {
 
           const dateString =
@@ -997,6 +1148,14 @@ const dayEvents =
     dateString
   );
 
+const unscheduledEvents = calendarEvents
+  .filter((event) => event.date === dateString && event.time === null)
+  .map((event) => {
+    const result = getStepForEvent(event);
+    return result ? { event, ...result } : null;
+  })
+  .filter((item): item is NonNullable<typeof item> => item !== null);
+
 const eventLayouts =
   getEventLayout(
     dayEvents
@@ -1006,6 +1165,7 @@ const eventLayouts =
 
             <div
               key={dateString}
+              data-date={dateString}
               className={
                 dateString === today
                   ? "week-day today"
@@ -1035,19 +1195,38 @@ const eventLayouts =
 
               <div className="week-day-body">
 
+                <div className="week-unscheduled-lane">
+                  {unscheduledEvents.map(({ event, task, step }) => (
+                    <div
+                      key={event.id}
+                      className="week-unscheduled-event"
+                      onPointerDown={(e) => startMove(e, event)}
+                      onContextMenu={(e) => openProjectColorMenu(e, task.projectId)}
+                      style={{ backgroundColor: getProjectColor(task.projectId) }}
+                      title={`${step.title} · ${task.title}`}
+                    >
+                      {step.title}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="week-time-grid">
+
                 {
                   Array.from(
-                    { length: 24 },
-                    (_, hour) => (
+                    { length: 96 },
+                    (_, quarterHour) => (
 
                       <div
-                        key={hour}
+                        key={quarterHour}
                         className="week-hour-row"
                       />
 
                     )
                   )
                 }
+
+                </div>
 
 
                 {/* Calendar events */}
@@ -1061,10 +1240,8 @@ const eventLayouts =
       start,
       column,
       totalColumns,
+      end,
     }) => {
-
-      const top =
-        start;
 
       const height =
         Math.max(
@@ -1072,32 +1249,48 @@ const eventLayouts =
           15
         );
 
-      const width =
-        100 / totalColumns;
-
-      const left =
-        column * width;
+      const exactTimePeers = eventLayouts
+        .filter((candidate) => candidate.start === start && candidate.end === end)
+        .sort((a, b) => a.column - b.column);
+      const exactTimePeerIndex = exactTimePeers.findIndex(
+        (candidate) => candidate.event.id === event.id
+      );
+      const sharesExactTime = exactTimePeers.length > 1;
+      const layerOffset = 22;
+      const width = sharesExactTime
+        ? 100 / exactTimePeers.length
+        : Math.max(100 - (totalColumns - 1) * layerOffset, 58);
+      const left = sharesExactTime
+        ? exactTimePeerIndex * width
+        : column * layerOffset;
 
       return (
 
 <div
   key={event.id}
-  className={
-    resizingEventId === event.id
-      ? "week-event resizing"
-      : "week-event"
-  }
+  className={[
+    "week-event",
+    resizingEventId === event.id ? "resizing" : "",
+    selectedEventId === event.id ? "selected" : "",
+  ].filter(Boolean).join(" ")}
+
+  onPointerDown={(e) => startMove(e, event)}
+  onContextMenu={(e) => openProjectColorMenu(e, task.projectId)}
 
   style={{
-    top: `${start}px`,
+    top: `${start + 44}px`,
     height: `${height}px`,
     left: `calc(${left}% + 4px)`,
     width: `calc(${width}% - 8px)`,
+    zIndex: selectedEventId === event.id
+      ? 50
+      : sharesExactTime ? 3 + exactTimePeerIndex : 2 + column,
+    backgroundColor: getProjectColor(task.projectId),
   }}
 >
 
           <div className="week-event-time">
-            {event.time}
+            {formatTimeRange(event.time ?? "00:00", event.duration ?? 60)}
           </div>
 
           <div className="week-event-title">
@@ -1141,6 +1334,41 @@ const eventLayouts =
 )
 
 }
+
+      {projectColorMenu && (
+        <div
+          className="project-color-backdrop"
+          onPointerDown={() => setProjectColorMenu(null)}
+        >
+          <div
+            className="project-color-menu"
+            style={{ left: projectColorMenu.x, top: projectColorMenu.y }}
+            onPointerDown={(e) => e.stopPropagation()}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            <strong>
+              {projects.find((item) => item.id === projectColorMenu.projectId)?.name ?? "Project"}
+            </strong>
+            <span className="project-color-prompt">Choose a project color</span>
+            <div className="project-color-swatches">
+              {PROJECT_COLORS.map(({ name, color }) => (
+                <button
+                  key={name}
+                  type="button"
+                  className={getProjectColor(projectColorMenu.projectId) === color ? "selected" : ""}
+                  style={{ backgroundColor: color }}
+                  aria-label={`${name} project color`}
+                  title={name}
+                  onClick={() => changeProjectColor(color)}
+                />
+              ))}
+            </div>
+            <button type="button" onClick={() => setProjectColorMenu(null)}>
+              Done
+            </button>
+          </div>
+        </div>
+      )}
 
 </div>
 

@@ -169,6 +169,17 @@ useState<Task>(
 
   };
 
+  const addTaskDay = () => {
+    const offset = task.timeline.length;
+    const newDay: Day = {
+      id: crypto.randomUUID(),
+      offset,
+      date: addDays(task.startDate, offset),
+      steps: [createInitialStep()],
+    };
+    updateTask({ timeline: [...task.timeline, newDay] });
+  };
+
   const createProject = (
     name: string
   ) => {
@@ -234,10 +245,21 @@ const createTask = () => {
   }, 2000);
 
 };
+
+const handleShortcut = (event: React.KeyboardEvent<HTMLDivElement>) => {
+  if (event.key !== "Enter") return;
+  if (event.ctrlKey) {
+    event.preventDefault();
+    createTask();
+  } else if (event.shiftKey) {
+    event.preventDefault();
+    addTaskDay();
+  }
+};
   
   return (
 
-    <div className="task-builder">
+    <div className="task-builder" onKeyDown={handleShortcut}>
 
 
       <h1>
@@ -317,6 +339,10 @@ const createTask = () => {
           task.timeline
         }
 
+        startDate={task.startDate}
+
+        onAddDay={addTaskDay}
+
 
         onUpdateTimeline={
           updateTimeline
@@ -333,6 +359,10 @@ const createTask = () => {
         </div>
 
       )}
+
+      <p className="keyboard-shortcut-hint">
+        <kbd>Enter</kbd> add a step <span>·</span> <kbd>Shift+Enter</kbd> add a day <span>·</span> <kbd>Ctrl+Enter</kbd> create task
+      </p>
 
       <button
 

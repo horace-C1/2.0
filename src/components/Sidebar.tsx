@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 
 import "./Sidebar.css";
 
@@ -7,32 +7,38 @@ const menuItems = [
 
 {
 name:"Dashboard",
-path:"/"
+path:"/",
+mobileName:"Home"
 },
 
 {
 name:"Daily Tasks",
-path:"/daily"
+path:"/daily",
+mobileName:"Daily"
 },
 
 {
 name:"Project",
-path:"/Projects"
+path:"/Projects",
+mobileName:"Projects"
 },
 
 {
 name:"Create Task",
-path:"/tasks"
+path:"/tasks",
+mobileName:"New"
 },
 
 {
 name:"Calendar",
-path:"/calendar"
+path:"/calendar",
+mobileName:"Calendar"
 },
 
 {
 name:"Settings",
-path:"/settings"
+path:"/settings",
+mobileName:"Settings"
 }
 
 ];
@@ -55,19 +61,23 @@ Protocol Tracker
 {
 menuItems.map((item)=>(
 
-<Link
+<NavLink
 
 key={item.name}
 
 to={item.path}
-
-className="sidebar-item"
+end={item.path === "/"}
+className={({ isActive }) => `sidebar-item${isActive ? " active" : ""}`}
+aria-label={item.name}
 
 >
 
-{item.name}
+<span className="sidebar-item-label">{item.name}</span>
+<span className="sidebar-item-mobile-label" aria-hidden="true">
+  {item.mobileName}
+</span>
 
-</Link>
+</NavLink>
 
 ))
 }

@@ -7,7 +7,16 @@ export const getCalendarEvents = (): CalendarEvent[] => {
     return [];
   }
 
-  return JSON.parse(stored);
+  const events: CalendarEvent[] = JSON.parse(stored);
+  const migratedEvents = events.map((event) =>
+    event.time === "09:00" ? { ...event, time: null } : event
+  );
+
+  if (migratedEvents.some((event, index) => event !== events[index])) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(migratedEvents));
+  }
+
+  return migratedEvents;
 };
 
 export const saveCalendarEvents = (
@@ -126,7 +135,7 @@ newEvents.push({
 
   date,
 
-  time: "09:00",
+  time: null,
 
   duration: 60,
 

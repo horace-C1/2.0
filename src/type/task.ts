@@ -16,6 +16,18 @@ export interface Project {
 
   name: string;
 
+  color?: string;
+
+  progressNotes?: string;
+
+  actionItems?: ProjectActionItem[];
+
+}
+
+export interface ProjectActionItem {
+  id: string;
+  text: string;
+  completed: boolean;
 }
 
 

@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import Layout from "./components/Layout";
 
-import Dashboard from "./pages/Tasks";
+import Dashboard from "./pages/Dashboard";
 import Tasks from "./pages/Tasks";
 import Projects from "./pages/Projects";
 import Templates from "./pages/Templates";

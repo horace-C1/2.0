@@ -10,6 +10,10 @@ interface TimelineEditorProps {
 
   timeline: Day[];
 
+  startDate: string;
+
+  onAddDay?: () => void;
+
   onUpdateTimeline: (
     timeline: Day[]
   ) => void;
@@ -22,9 +26,20 @@ export default function TimelineEditor({
 
   timeline,
 
+  startDate,
+
+  onAddDay,
+
   onUpdateTimeline,
 
 }: TimelineEditorProps) {
+
+  const getDateAtOffset = (dateString: string, offset: number) => {
+    const [year, month, day] = dateString.split("-").map(Number);
+    const date = new Date(year, month - 1, day);
+    date.setDate(date.getDate() + offset);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  };
 
 
 
@@ -81,6 +96,11 @@ export default function TimelineEditor({
 
   const addDay = () => {
 
+    if (onAddDay) {
+      onAddDay();
+      return;
+    }
+
 
     const newDay: Day = {
 
@@ -98,6 +118,8 @@ export default function TimelineEditor({
       offset:
 
         timeline.length,
+
+      date: getDateAtOffset(startDate, timeline.length),
 
 
 

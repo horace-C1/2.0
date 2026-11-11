@@ -1,4 +1,5 @@
 import Sidebar from "./Sidebar";
+import "../style/pages.css";
 
 
 export default function Layout(
