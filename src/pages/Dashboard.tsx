@@ -12,6 +12,7 @@ type StepEntry = {
   task: Task;
   day: Day;
   step: Step;
+  dueDate: string;
 };
 
 const getLocalDateString = (date: Date) => {
@@ -19,6 +20,13 @@ const getLocalDateString = (date: Date) => {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+};
+
+const getTaskDayDate = (task: Task, day: Day) => {
+  const [year, month, date] = task.startDate.split("-").map(Number);
+  const taskDate = new Date(year, month - 1, date);
+  taskDate.setDate(taskDate.getDate() + day.offset);
+  return getLocalDateString(taskDate);
 };
 
 const formatDateHeading = (date: Date) =>
@@ -53,12 +61,31 @@ export default function Dashboard() {
   sevenDaysOut.setDate(sevenDaysOut.getDate() + 7);
   const lastUpcomingDate = getLocalDateString(sevenDaysOut);
 
-  const entries: StepEntry[] = calendarEvents.flatMap((event) => {
-    const task = tasks.find((item) => item.id === event.taskId);
-    const day = task?.timeline.find((item) => item.id === event.dayId);
-    const step = day?.steps.find((item) => item.id === event.stepId);
-    return task && day && step ? [{ event, task, day, step }] : [];
-  });
+  const eventsByStep = new Map<string, CalendarEvent>(
+    calendarEvents.map((event): [string, CalendarEvent] => [
+      JSON.stringify([event.taskId, event.dayId, event.stepId]),
+      event,
+    ])
+  );
+  const entries: StepEntry[] = tasks.flatMap((task) =>
+    task.timeline.flatMap((day) =>
+      day.steps.map((step) => {
+        const dueDate = getTaskDayDate(task, day);
+        const eventKey = JSON.stringify([task.id, day.id, step.id]);
+        const event: CalendarEvent = eventsByStep.get(eventKey) ?? {
+          id: `unscheduled-${eventKey}`,
+          taskId: task.id,
+          dayId: day.id,
+          stepId: step.id,
+          date: dueDate,
+          time: null,
+          duration: 60,
+        };
+
+        return { event, task, day, step, dueDate };
+      })
+    )
+  );
 
   const sortEntries = (items: StepEntry[]) => [...items].sort((a, b) => {
     const dateOrder = a.event.date.localeCompare(b.event.date);
@@ -67,7 +94,10 @@ export default function Dashboard() {
   });
 
   const dueToday = sortEntries(entries.filter((entry) => entry.event.date === today && !entry.step.completed));
-  const overdue = sortEntries(entries.filter((entry) => entry.event.date < today && !entry.step.completed));
+  const overdue = entries
+    .filter((entry) => entry.dueDate < today && !entry.step.completed)
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate)
+      || (a.event.time ?? "99:99").localeCompare(b.event.time ?? "99:99"));
   const upcoming = sortEntries(entries.filter((entry) =>
     !entry.step.completed && entry.event.date > today && entry.event.date <= lastUpcomingDate
   ));
@@ -110,7 +140,8 @@ export default function Dashboard() {
     entry: StepEntry,
     showDate = false,
     showSchedule = false,
-    showTaskName = false
+    showTaskName = false,
+    showDueDate = false
   ) => {
     const project = projects.find((item) => item.id === entry.task.projectId);
     return (
@@ -126,7 +157,7 @@ export default function Dashboard() {
             {showTaskName ? entry.task.title : entry.step.title}
           </span>
           <span className="dashboard-step-meta">
-            {showDate && <span>{new Date(`${entry.event.date}T00:00:00`).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}</span>}
+            {showDate && <span>{new Date(`${showDueDate ? entry.dueDate : entry.event.date}T00:00:00`).toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}</span>}
             <span>{getTimeRange(entry.event)}</span>
             {!showTaskName && <span>{entry.task.title}</span>}
             {project && <span>{project.name}</span>}
@@ -230,7 +261,7 @@ export default function Dashboard() {
           </div>
           {overdue.length ? (
             <>
-              <div className="dashboard-step-list">{overdue.slice(0, 3).map((entry) => renderStepRow(entry, true))}</div>
+              <div className="dashboard-step-list">{overdue.slice(0, 3).map((entry) => renderStepRow(entry, true, false, false, true))}</div>
               {renderMoreLink(overdue.length - 3)}
             </>
           ) : (
