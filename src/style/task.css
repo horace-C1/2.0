@@ -540,6 +540,22 @@
   border-top: 1px solid #e2e8f0;
 }
 
+.task-delete-button {
+  margin-top: 14px;
+  padding: 8px 12px;
+  border: 1px solid #fecaca;
+  border-radius: 7px;
+  background: #fff;
+  color: #b91c1c;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.task-delete-button:hover {
+  background: #fef2f2;
+}
+
 .task-day {
   margin: 16px 0;
   padding-left: 12px;

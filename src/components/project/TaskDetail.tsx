@@ -17,6 +17,8 @@ interface TaskDetailProps {
     task: Task
   ) => void;
 
+  onDeleteTask: (task: Task) => void;
+
   editNotes?: boolean;
 
 }
@@ -30,6 +32,8 @@ export default function TaskDetail({
   onUpdateTask,
 
   onReuseProtocol,
+
+  onDeleteTask,
 
   editNotes = false,
 
@@ -269,6 +273,14 @@ useEffect(() => {
       </button>
 
 
+
+      <button
+        type="button"
+        className="task-delete-button"
+        onClick={() => onDeleteTask(task)}
+      >
+        Delete Task
+      </button>
 
     </div>
 

@@ -1,4 +1,5 @@
 import type { Task } from "../type/task";
+import { getCalendarEvents, saveCalendarEvents } from "./calendarStorage";
 
 const TASK_STORAGE_KEY = "protocol-tracker-tasks";
 
@@ -74,6 +75,9 @@ export function deleteTask(taskId: string): void {
   );
 
   saveTasks(filteredTasks);
+  saveCalendarEvents(
+    getCalendarEvents().filter((event) => event.taskId !== taskId)
+  );
 
 }
 

@@ -120,6 +120,10 @@ export default function Calendar() {
 
     const [resizingEventId, setResizingEventId] =
   useState<string | null>(null);
+const [dragPreview, setDragPreview] = useState<CalendarEvent | null>(null);
+const dragPreviewRef = useRef<CalendarEvent | null>(null);
+const [resizePreviewDuration, setResizePreviewDuration] = useState<number | null>(null);
+const resizePreviewDurationRef = useRef<number | null>(null);
 
 const resizeStartY =
   useRef<number>(0);
@@ -193,6 +197,24 @@ const startMove = (
   e.stopPropagation();
 
   const grabOffsetY = e.clientY - (e.currentTarget as HTMLElement).getBoundingClientRect().top;
+  dragPreviewRef.current = null;
+  setDragPreview(null);
+
+  const cleanup = () => {
+    window.removeEventListener("pointermove", handlePointerMove);
+    window.removeEventListener("pointerup", handlePointerUp);
+    window.removeEventListener("pointercancel", handlePointerCancel);
+  };
+
+  const finishMove = (commit: boolean) => {
+    const preview = dragPreviewRef.current;
+    if (commit && preview && (preview.date !== event.date || preview.time !== event.time)) {
+      updateCalendarEvent(preview);
+    }
+    dragPreviewRef.current = null;
+    setDragPreview(null);
+    cleanup();
+  };
 
   const handlePointerMove = (moveEvent: PointerEvent) => {
     const underPointer = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY);
@@ -203,26 +225,28 @@ const startMove = (
 
     const laneHeight = 44;
     const localY = moveEvent.clientY - dayBody.getBoundingClientRect().top + dayBody.scrollTop;
+    let time: string | null;
     if (localY < laneHeight) {
-      updateCalendarEvent({ ...event, date, time: null });
+      time = null;
     } else {
-      const latestEvent = getCalendarEvents().find((item) => item.id === event.id) ?? event;
-      const minute = Math.max(0, Math.min(1440 - (latestEvent.duration ?? 60),
+      const minute = Math.max(0, Math.min(1440 - (event.duration ?? 60),
         Math.round((localY - laneHeight - grabOffsetY) / 15) * 15));
-      const time = `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
-      updateCalendarEvent({ ...event, date, time });
+      time = `${String(Math.floor(minute / 60)).padStart(2, "0")}:${String(minute % 60).padStart(2, "0")}`;
     }
-    forceCalendarRefresh((value) => value + 1);
+
+    const preview = { ...event, date, time };
+    dragPreviewRef.current = preview;
+    setDragPreview(preview);
   };
 
-  const handlePointerUp = () => {
-    window.removeEventListener("pointermove", handlePointerMove);
-    window.removeEventListener("pointerup", handlePointerUp);
-  };
+  const handlePointerUp = () => finishMove(true);
+  const handlePointerCancel = () => finishMove(false);
 
   window.addEventListener("pointermove", handlePointerMove);
   window.addEventListener("pointerup", handlePointerUp);
+  window.addEventListener("pointercancel", handlePointerCancel);
 };
+
 
 
   const tasks =
@@ -343,105 +367,48 @@ const startResize = (
   e: React.PointerEvent,
   event: CalendarEvent
 ) => {
-
   e.stopPropagation();
   setSelectedEventId(event.id);
 
-  resizeStartY.current =
-    e.clientY;
+  const initialDuration = event.duration ?? 60;
+  resizeStartY.current = e.clientY;
+  resizeStartDuration.current = initialDuration;
+  resizePreviewDurationRef.current = initialDuration;
+  setResizePreviewDuration(initialDuration);
+  setResizingEventId(event.id);
 
-  resizeStartDuration.current =
-    event.duration ?? 60;
+  const cleanup = () => {
+    window.removeEventListener("pointermove", handlePointerMove);
+    window.removeEventListener("pointerup", handlePointerUp);
+    window.removeEventListener("pointercancel", handlePointerCancel);
+  };
 
-  setResizingEventId(
-    event.id
-  );
+  const finishResize = (commit: boolean) => {
+    const duration = resizePreviewDurationRef.current;
+    if (commit && duration !== null && duration !== initialDuration) {
+      updateCalendarEvent({ ...event, duration });
+    }
+    resizePreviewDurationRef.current = null;
+    setResizePreviewDuration(null);
+    setResizingEventId(null);
+    cleanup();
+  };
 
-  const handlePointerMove =
-    (moveEvent: PointerEvent) => {
+  const handlePointerMove = (moveEvent: PointerEvent) => {
+    const deltaMinutes = Math.round((moveEvent.clientY - resizeStartY.current) / 15) * 15;
+    const [startHour, startMinute] = (event.time ?? "00:00").split(":").map(Number);
+    const maxDuration = Math.max(15, 1440 - (startHour * 60 + startMinute));
+    const duration = Math.min(maxDuration, Math.max(15, initialDuration + deltaMinutes));
+    resizePreviewDurationRef.current = duration;
+    setResizePreviewDuration(duration);
+  };
 
-      const pixelsPerMinute = 1;
+  const handlePointerUp = () => finishResize(true);
+  const handlePointerCancel = () => finishResize(false);
 
-      const deltaY =
-        moveEvent.clientY -
-        resizeStartY.current;
-
-      const deltaMinutes =
-        Math.round(
-          deltaY /
-          pixelsPerMinute /
-          15
-        ) * 15;
-
-      const [startHour, startMinute] = (event.time ?? "00:00").split(":").map(Number);
-      const maxDuration = Math.max(15, 1440 - (startHour * 60 + startMinute));
-      const newDuration = Math.min(
-        maxDuration,
-        Math.max(15, resizeStartDuration.current + deltaMinutes)
-      );
-
-      const updatedEvent = {
-        ...event,
-        duration: newDuration,
-      };
-
-      // Update localStorage
-      const allEvents =
-        getCalendarEvents();
-
-      const updatedEvents =
-        allEvents.map(
-          (item) =>
-            item.id === event.id
-              ? updatedEvent
-              : item
-        );
-
-      localStorage.setItem(
-        "protocol-tracker-calendar-events",
-        JSON.stringify(
-          updatedEvents
-        )
-      );
-
-      // Force calendar refresh
-      setResizingEventId(
-        event.id
-      );
-
-    };
-
-
-  const handlePointerUp =
-    () => {
-
-      setResizingEventId(
-        null
-      );
-
-      window.removeEventListener(
-        "pointermove",
-        handlePointerMove
-      );
-
-      window.removeEventListener(
-        "pointerup",
-        handlePointerUp
-      );
-
-    };
-
-
-  window.addEventListener(
-    "pointermove",
-    handlePointerMove
-  );
-
-  window.addEventListener(
-    "pointerup",
-    handlePointerUp
-  );
-
+  window.addEventListener("pointermove", handlePointerMove);
+  window.addEventListener("pointerup", handlePointerUp);
+  window.addEventListener("pointercancel", handlePointerCancel);
 };
 
 const getEventLayout = (
@@ -1170,6 +1137,15 @@ const eventLayouts =
   getEventLayout(
     dayEvents
   );
+const dragPreviewEntry = dragPreview?.date === dateString
+  ? getStepForEvent(dragPreview)
+  : null;
+const dragPreviewStart = dragPreview?.time
+  ? (() => {
+      const [hour, minute] = dragPreview.time!.split(":").map(Number);
+      return hour * 60 + minute;
+    })()
+  : null;
 
           return (
 
@@ -1209,7 +1185,7 @@ const eventLayouts =
                   {unscheduledEvents.map(({ event, task, step }) => (
                     <div
                       key={event.id}
-                      className="week-unscheduled-event"
+                      className={`week-unscheduled-event${dragPreview?.id === event.id ? " drag-source" : ""}`}
                       onPointerDown={(e) => startMove(e, event)}
                       onContextMenu={(e) => openProjectColorMenu(e, task.projectId)}
                       style={{ backgroundColor: getProjectColor(task.projectId) }}
@@ -1218,6 +1194,15 @@ const eventLayouts =
                       {step.title}
                     </div>
                   ))}
+                  {dragPreview?.date === dateString && dragPreview.time === null && dragPreviewEntry && (
+                    <div
+                      className="week-unscheduled-event drag-preview"
+                      style={{ backgroundColor: getProjectColor(dragPreviewEntry.task.projectId) }}
+                      aria-hidden="true"
+                    >
+                      {dragPreviewEntry.step.title}
+                    </div>
+                  )}
                 </div>
 
                 <div className="week-time-grid">
@@ -1253,11 +1238,10 @@ const eventLayouts =
       end,
     }) => {
 
-      const height =
-        Math.max(
-          event.duration,
-          15
-        );
+      const displayDuration = resizingEventId === event.id && resizePreviewDuration !== null
+        ? resizePreviewDuration
+        : event.duration ?? 60;
+      const height = Math.max(displayDuration, 15);
 
       const exactTimePeers = eventLayouts
         .filter((candidate) => candidate.start === start && candidate.end === end)
@@ -1282,6 +1266,7 @@ const eventLayouts =
     "week-event",
     resizingEventId === event.id ? "resizing" : "",
     selectedEventId === event.id ? "selected" : "",
+    dragPreview?.id === event.id ? "drag-source" : "",
   ].filter(Boolean).join(" ")}
 
   onPointerDown={(e) => startMove(e, event)}
@@ -1295,12 +1280,13 @@ const eventLayouts =
     zIndex: selectedEventId === event.id
       ? 50
       : sharesExactTime ? 3 + exactTimePeerIndex : 2 + column,
+    opacity: dragPreview?.id === event.id ? 0.35 : 1,
     backgroundColor: getProjectColor(task.projectId),
   }}
 >
 
           <div className="week-event-time">
-            {formatTimeRange(event.time ?? "00:00", event.duration ?? 60)}
+            {formatTimeRange(event.time ?? "00:00", displayDuration)}
           </div>
 
           <div className="week-event-title">
@@ -1328,6 +1314,27 @@ const eventLayouts =
     }
   )
 }
+
+{dragPreview?.date === dateString && dragPreview.time !== null && dragPreviewStart !== null && dragPreviewEntry && (
+  <div
+    className="week-event drag-preview"
+    style={{
+      top: `${dragPreviewStart + 44}px`,
+      height: `${Math.max(dragPreview.duration ?? 60, 15)}px`,
+      left: "4px",
+      width: "calc(100% - 8px)",
+      zIndex: 80,
+      backgroundColor: getProjectColor(dragPreviewEntry.task.projectId),
+    }}
+    aria-hidden="true"
+  >
+    <div className="week-event-time">
+      {formatTimeRange(dragPreview.time, dragPreview.duration ?? 60)}
+    </div>
+    <div className="week-event-title">{dragPreviewEntry.step.title}</div>
+    <div className="week-event-task">{dragPreviewEntry.task.title}</div>
+  </div>
+)}
 
               </div>
 

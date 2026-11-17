@@ -350,6 +350,16 @@
   touch-action: none;
 }
 
+.week-unscheduled-event.drag-source {
+  opacity: 0.35;
+}
+
+.week-unscheduled-event.drag-preview {
+  border: 1px dashed rgba(15, 23, 42, 0.55);
+  opacity: 0.72;
+  pointer-events: none;
+}
+
 .week-time-grid {
   position: absolute;
   top: 44px;
@@ -408,6 +418,18 @@
 
 .week-event.selected {
   box-shadow: 0 2px 8px rgba(15, 23, 42, 0.22);
+}
+
+.week-event.drag-source {
+  opacity: 0.35;
+}
+
+.week-event.drag-preview {
+  border: 2px dashed #fff;
+  outline: 1px dashed rgba(15, 23, 42, 0.5);
+  opacity: 0.72;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18);
 }
 
 .week-event:active {

@@ -17,6 +17,7 @@ import {
 
 
 import {
+  deleteTask,
   getTasks,
 } from "../services/taskStorage";
 
@@ -120,6 +121,17 @@ export default function Projects() {
 
   const [selectedTask, setSelectedTask] =
     useState<Task | null>(null);
+
+  const handleDeleteTask = (task: Task) => {
+    if (!window.confirm(`Delete "${task.title}"? Its calendar events will also be removed.`)) return;
+
+    deleteTask(task.id);
+    const remainingTasks = tasks.filter((item) => item.id !== task.id);
+    const nextTask = remainingTasks.find((item) => item.projectId === selectedProjectId) ?? null;
+    setTasks(remainingTasks);
+    setSelectedTask(nextTask);
+    saveProjectView(selectedProjectId, nextTask?.id ?? null, projectSection);
+  };
 
 
 
@@ -321,6 +333,7 @@ const selectedProject = projects.find((project) => project.id === selectedProjec
             task={selectedTask}
             onUpdateTask={handleUpdateTask}
             onReuseProtocol={handleReuseProtocol}
+            onDeleteTask={handleDeleteTask}
             editNotes={editNotes}
           />
         </div>
