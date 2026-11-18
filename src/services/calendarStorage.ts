@@ -61,8 +61,39 @@ export const deleteCalendarEvent = (
   saveCalendarEvents(events);
 };
 
-import type { Task } from "../type/task";
 import type { CalendarEvent } from "../type/calendar";
+import type { Day, Step, Task } from "../type/task";
+
+export const getTaskDayDefaultDate = (task: Task, day: Day) => {
+  const date = new Date(`${task.startDate}T00:00:00`);
+  date.setDate(date.getDate() + day.offset);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const dayNumber = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${dayNumber}`;
+};
+
+export const getTaskStepDate = (task: Task, day: Day, step: Step) =>
+  step.scheduledDate || getTaskDayDefaultDate(task, day);
+
+export const syncTaskStepDates = (task: Task, previousTask: Task) => {
+  const events = getCalendarEvents();
+  let changed = false;
+  const updated = events.map((event) => {
+    if (event.taskId !== task.id) return event;
+    const day = task.timeline.find((item) => item.id === event.dayId);
+    const step = day?.steps.find((item) => item.id === event.stepId);
+    const oldDay = previousTask.timeline.find((item) => item.id === event.dayId);
+    const oldStep = oldDay?.steps.find((item) => item.id === event.stepId);
+    if (!day || !step || !oldDay || !oldStep) return event;
+    const oldDate = getTaskStepDate(previousTask, oldDay, oldStep);
+    const newDate = getTaskStepDate(task, day, step);
+    if (oldDate === newDate) return event;
+    changed = true;
+    return { ...event, date: newDate };
+  });
+  if (changed) saveCalendarEvents(updated);
+};
 
 export const createEventsForTask = (
   task: Task
@@ -90,29 +121,7 @@ export const createEventsForTask = (
         return;
       }
 
-const stepDate = new Date(
-  task.startDate + "T00:00:00"
-);
-
-stepDate.setDate(
-  stepDate.getDate() + day.offset
-);
-
-const year =
-  stepDate.getFullYear();
-
-const month =
-  String(
-    stepDate.getMonth() + 1
-  ).padStart(2, "0");
-
-const dayNumber =
-  String(
-    stepDate.getDate()
-  ).padStart(2, "0");
-
-const date =
-  `${year}-${month}-${dayNumber}`;
+const date = getTaskStepDate(task, day, step);
 
 newEvents.push({
 

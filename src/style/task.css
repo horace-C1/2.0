@@ -412,6 +412,17 @@
   min-height: 40px;
 }
 
+.step-item .step-date {
+  width: 145px;
+  min-width: 125px;
+  padding: 7px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #334155;
+  background: #fff;
+  font: inherit;
+}
+
 .delete-step {
   width: 38px;
   height: 38px;

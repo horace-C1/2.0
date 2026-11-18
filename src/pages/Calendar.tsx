@@ -7,10 +7,12 @@ import type { CalendarEvent } from "../type/calendar";
 import {
   getCalendarEvents,
   updateCalendarEvent,
+  getTaskDayDefaultDate,
 } from "../services/calendarStorage";
 
 import {
   getTasks,
+  updateTask,
 } from "../services/taskStorage";
 import { getProjects, updateProject } from "../services/projectStorage";
 
@@ -210,6 +212,22 @@ const startMove = (
     const preview = dragPreviewRef.current;
     if (commit && preview && (preview.date !== event.date || preview.time !== event.time)) {
       updateCalendarEvent(preview);
+      const linked = getTasks().find((task) => task.id === event.taskId);
+      const linkedDay = linked?.timeline.find((day) => day.id === event.dayId);
+      const linkedStep = linkedDay?.steps.find((step) => step.id === event.stepId);
+      if (linked && linkedDay && linkedStep) {
+        const defaultDate = getTaskDayDefaultDate(linked, linkedDay);
+        updateTask({
+          ...linked,
+          timeline: linked.timeline.map((day) => day.id !== linkedDay.id ? day : {
+            ...day,
+            steps: day.steps.map((step) => step.id !== linkedStep.id ? step : {
+              ...step,
+              scheduledDate: preview.date === defaultDate ? undefined : preview.date,
+            }),
+          }),
+        });
+      }
     }
     dragPreviewRef.current = null;
     setDragPreview(null);
@@ -682,31 +700,8 @@ const getEventLayout = (
         .filter(
           (day) => {
 
-            const [
-              year,
-              month,
-              dayOfMonth
-            ] =
-              task.startDate
-                .split("-")
-                .map(Number);
-
-            const taskDate =
-              new Date(
-                year,
-                month - 1,
-                dayOfMonth
-              );
-
-            taskDate.setDate(
-              taskDate.getDate() +
-              day.offset
-            );
-
-            return (
-              getDateString(
-                taskDate
-              ) === date
+            return day.steps.some((step) =>
+              (step.scheduledDate ?? getTaskDayDefaultDate(task, day)) === date
             );
 
           }

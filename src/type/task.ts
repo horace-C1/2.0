@@ -42,6 +42,9 @@ export interface Step {
 
   startTime?: string;
 
+  /** Optional calendar date override; otherwise the task day offset applies. */
+  scheduledDate?: string;
+
 }
 
 

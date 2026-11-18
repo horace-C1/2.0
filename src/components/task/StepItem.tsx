@@ -14,6 +14,8 @@ interface StepItemProps {
   onAddStep?: () => void;
 
   autoFocusAllowed?: boolean;
+  defaultDate: string;
+  showDateInput: boolean;
 }
 
 
@@ -23,6 +25,8 @@ export default function StepItem({
   onDeleteStep,
   onAddStep,
   autoFocusAllowed = true,
+  defaultDate,
+  showDateInput,
 }: StepItemProps) {
 
 
@@ -85,6 +89,18 @@ export default function StepItem({
         }
         onKeyDown={handleKeyDown}
       />
+
+      {showDateInput && (
+        <input
+          className="step-date"
+          type="date"
+          aria-label="Step date"
+          value={step.scheduledDate ?? defaultDate}
+          onChange={(e) => onUpdateStep(step.id, {
+            scheduledDate: e.target.value === defaultDate ? undefined : e.target.value,
+          })}
+        />
+      )}
 
 
       <button

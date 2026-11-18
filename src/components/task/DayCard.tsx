@@ -13,6 +13,10 @@ interface DayCardProps {
 
   autoFocusAllowed: boolean;
 
+  defaultDate: string;
+
+  showStepDates: boolean;
+
 }
 
 
@@ -20,6 +24,8 @@ export default function DayCard({
   day,
   onUpdateDay,
   autoFocusAllowed,
+  defaultDate,
+  showStepDates,
 }: DayCardProps) {
 
 
@@ -94,6 +100,8 @@ export default function DayCard({
           <StepItem
             key={step.id}
             step={step}
+            defaultDate={defaultDate}
+            showDateInput={showStepDates}
             autoFocusAllowed={autoFocusAllowed}
             onUpdateStep={
               updateStep

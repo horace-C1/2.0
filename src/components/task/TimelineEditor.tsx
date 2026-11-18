@@ -14,6 +14,8 @@ interface TimelineEditorProps {
 
   autoFocusAllowed?: boolean;
 
+  showStepDates?: boolean;
+
   onAddDay?: () => void;
 
   onUpdateTimeline: (
@@ -31,6 +33,8 @@ export default function TimelineEditor({
   startDate,
 
   autoFocusAllowed = true,
+
+  showStepDates = false,
 
   onAddDay,
 
@@ -257,6 +261,8 @@ export default function TimelineEditor({
               <DayCard
 
                 day={day}
+                defaultDate={getDateAtOffset(startDate, day.offset)}
+                showStepDates={showStepDates}
 
                 autoFocusAllowed={autoFocusAllowed}
 

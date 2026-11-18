@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { CalendarEvent } from "../type/calendar";
 import type { Day, Project, Step, Task } from "../type/task";
-import { getCalendarEvents } from "../services/calendarStorage";
+import { getCalendarEvents, getTaskStepDate } from "../services/calendarStorage";
 import { getProjects } from "../services/projectStorage";
 import { getTasks, updateTask } from "../services/taskStorage";
 import "../style/dashboard.css";
@@ -20,13 +20,6 @@ const getLocalDateString = (date: Date) => {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-};
-
-const getTaskDayDate = (task: Task, day: Day) => {
-  const [year, month, date] = task.startDate.split("-").map(Number);
-  const taskDate = new Date(year, month - 1, date);
-  taskDate.setDate(taskDate.getDate() + day.offset);
-  return getLocalDateString(taskDate);
 };
 
 const formatDateHeading = (date: Date) =>
@@ -70,7 +63,7 @@ export default function Dashboard() {
   const entries: StepEntry[] = tasks.flatMap((task) =>
     task.timeline.flatMap((day) =>
       day.steps.map((step) => {
-        const dueDate = getTaskDayDate(task, day);
+        const dueDate = getTaskStepDate(task, day, step);
         const eventKey = JSON.stringify([task.id, day.id, step.id]);
         const event: CalendarEvent = eventsByStep.get(eventKey) ?? {
           id: `unscheduled-${eventKey}`,
@@ -104,23 +97,20 @@ export default function Dashboard() {
   const activeTaskCount = tasks.filter((task) =>
     task.timeline.some((day) => day.steps.some((step) => !step.completed))
   ).length;
-  const totalStepCount = tasks.reduce(
-    (total, task) => total + task.timeline.reduce((dayTotal, day) => dayTotal + day.steps.length, 0),
-    0
+  const todaySteps = tasks.flatMap((task) =>
+    task.timeline
+      .flatMap((day) => day.steps.filter((step) => getTaskStepDate(task, day, step) === today))
   );
-  const completedStepCount = tasks.reduce(
-    (total, task) => total + task.timeline.reduce(
-      (dayTotal, day) => dayTotal + day.steps.filter((step) => step.completed).length,
-      0
-    ),
-    0
-  );
+  const todayCompletedStepCount = todaySteps.filter((step) => step.completed).length;
+  const todayRemainingStepCount = todaySteps.length - todayCompletedStepCount;
   const progressSegments = [
-    { label: "Completed", count: completedStepCount, color: "#22c55e" },
-    { label: "Overdue", count: overdue.length, color: "#ef4444" },
-    { label: "Due today", count: dueToday.length, color: "#f59e0b" },
+    { label: "Completed today", count: todayCompletedStepCount, color: "#22c55e" },
+    { label: "Remaining today", count: todayRemainingStepCount, color: "#cbd5e1" },
   ];
-  const visibleProgressTotal = progressSegments.reduce((total, segment) => total + segment.count, 0);
+  const visibleProgressTotal = todaySteps.length;
+  const todayProgressPercentage = visibleProgressTotal
+    ? Math.round((todayCompletedStepCount / visibleProgressTotal) * 100)
+    : 0;
   const toggleStep = (entry: StepEntry) => {
     const updatedTask: Task = {
       ...entry.task,
@@ -204,10 +194,10 @@ export default function Dashboard() {
         </button>
       </section>
 
-      <section className="dashboard-progress-panel" aria-label="Overall step progress">
+      <section className="dashboard-progress-panel" aria-label="Today's step progress">
         <div className="dashboard-progress-heading">
-          <h2>Overall progress</h2>
-          <strong>{totalStepCount ? Math.round((completedStepCount / totalStepCount) * 100) : 0}%</strong>
+          <h2>Today's progress</h2>
+          <strong>{todayProgressPercentage}%</strong>
         </div>
         {visibleProgressTotal ? (
           <>
@@ -237,7 +227,7 @@ export default function Dashboard() {
             </div>
           </>
         ) : (
-          <div className="dashboard-stacked-bar dashboard-stacked-bar-empty" role="img" aria-label="No completed, overdue, or due today steps" />
+          <div className="dashboard-stacked-bar dashboard-stacked-bar-empty" role="img" aria-label="No steps scheduled for today" />
         )}
       </section>
 

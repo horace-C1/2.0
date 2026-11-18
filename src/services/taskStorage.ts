@@ -1,5 +1,5 @@
 import type { Task } from "../type/task";
-import { getCalendarEvents, saveCalendarEvents } from "./calendarStorage";
+import { getCalendarEvents, getTaskDayDefaultDate, saveCalendarEvents } from "./calendarStorage";
 
 const TASK_STORAGE_KEY = "protocol-tracker-tasks";
 
@@ -15,7 +15,19 @@ export function getTasks(): Task[] {
   }
 
   try {
-    return JSON.parse(data) as Task[];
+    const tasks = JSON.parse(data) as Task[];
+    const events = getCalendarEvents();
+    let migrated = false;
+    tasks.forEach((task) => task.timeline.forEach((day) => day.steps.forEach((step) => {
+      if (step.scheduledDate) return;
+      const event = events.find((item) => item.taskId === task.id && item.dayId === day.id && item.stepId === step.id);
+      if (event && event.date !== getTaskDayDefaultDate(task, day)) {
+        step.scheduledDate = event.date;
+        migrated = true;
+      }
+    })));
+    if (migrated) saveTasks(tasks);
+    return tasks;
   } catch (error) {
     console.error("Failed to load tasks:", error);
     return [];

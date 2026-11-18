@@ -15,6 +15,8 @@ import {
   updateTask,
 } from "../services/taskStorage";
 
+import { createEventsForTask, getTaskStepDate, syncTaskStepDates } from "../services/calendarStorage";
+
 import {
   getProjects,
 } from "../services/projectStorage";
@@ -54,38 +56,18 @@ const today =
 
 const isStepToday = (
   task: Task,
-  day: Day
+  day: Day,
+  step: Step
 ) => {
-  const stepDate = new Date(
-    task.startDate + "T00:00:00"
-  );
-
-  stepDate.setDate(
-    stepDate.getDate() + day.offset
-  );
-
-  const scheduledDate =
-    getLocalDateString(stepDate);
-
-  return scheduledDate === today;
+  return getTaskStepDate(task, day, step) === today;
 };
 
 const isPastDay = (
   task: Task,
-  day: Day
+  day: Day,
+  step: Step
 ) => {
-  const stepDate = new Date(
-    task.startDate + "T00:00:00"
-  );
-
-  stepDate.setDate(
-    stepDate.getDate() + day.offset
-  );
-
-  const scheduledDate =
-    getLocalDateString(stepDate);
-
-  return scheduledDate < today;
+  return getTaskStepDate(task, day, step) < today;
 };
 
 const isStepOverdue = (
@@ -95,7 +77,7 @@ const isStepOverdue = (
 ) => {
 
   return (
-    isPastDay(task, day)
+    isPastDay(task, day, step)
     &&
     !step.completed
   );
@@ -110,10 +92,12 @@ const hasVisibleStepsInDay = (
     return day.steps.some(
       (step) => {
 
+        if (getTaskStepDate(task, day, step) > today) return false;
+
         // hide completed steps from past days
         if (
           step.completed &&
-          isPastDay(task, day)
+          isPastDay(task, day, step)
         ) {
           return false;
         }
@@ -333,6 +317,7 @@ hasVisibleStepsInDay(
         <TimelineEditor
           timeline={editingTask.timeline}
           startDate={editingTask.startDate}
+          showStepDates
           onUpdateTimeline={(timeline) => {
 
             setEditingTask({
@@ -351,7 +336,10 @@ hasVisibleStepsInDay(
 
               if (!editingTask) return;
 
+              const previousTask = tasks.find((item) => item.id === editingTask.id);
+              if (previousTask) syncTaskStepDates(editingTask, previousTask);
               updateTask(editingTask);
+              createEventsForTask(editingTask);
 
               setTasks(
                 tasks.map((t) =>
@@ -394,16 +382,7 @@ hasVisibleStepsInDay(
         .filter(
           (day) => {
 
-const dayDate = new Date(
-  task.startDate + "T00:00:00"
-);
-
-dayDate.setDate(
-  dayDate.getDate() + day.offset
-);
-
-const isVisibleDate =
-  getLocalDateString(dayDate) <= today;
+const isVisibleDate = day.steps.some((step) => getTaskStepDate(task, day, step) <= today);
 
             return (
               isVisibleDate &&
@@ -427,9 +406,15 @@ const isVisibleDate =
                   .filter(
                     (step) => {
 
+                      // A calendar move changes one step's date, even when
+                      // its neighboring steps still belong to another day.
+                      if (getTaskStepDate(task, day, step) > today) {
+                        return false;
+                      }
+
                       if (
                         step.completed &&
-                        isPastDay(task, day)
+                        isPastDay(task, day, step)
                       ) {
                         return false;
                       }
@@ -445,7 +430,7 @@ const isVisibleDate =
                         key={step.id}
                         className={
                           step.completed &&
-                          isStepToday(task, day)
+                          isStepToday(task, day, step)
 
                             ?
 
