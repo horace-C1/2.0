@@ -14,7 +14,6 @@ import {
   getTasks,
   updateTask,
 } from "../services/taskStorage";
-import { getProjects, updateProject } from "../services/projectStorage";
 
 const PROJECT_COLORS = [
   { name: "Blue", color: "#bfdbfe" },
@@ -120,6 +119,18 @@ export default function Calendar() {
       new Date()
     );
 
+  const [localNow, setLocalNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const refreshLocalTime = () => setLocalNow(new Date());
+    const timer = window.setInterval(refreshLocalTime, 30_000);
+    window.addEventListener("focus", refreshLocalTime);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshLocalTime);
+    };
+  }, []);
+
     const [resizingEventId, setResizingEventId] =
   useState<string | null>(null);
 const [dragPreview, setDragPreview] = useState<CalendarEvent | null>(null);
@@ -134,8 +145,8 @@ const resizeStartDuration =
   useRef<number>(60);
 
 const [, forceCalendarRefresh] = useState(0);
-const [projectColorMenu, setProjectColorMenu] = useState<{
-  projectId: string;
+const [taskColorMenu, setTaskColorMenu] = useState<{
+  taskId: string;
   x: number;
   y: number;
 } | null>(null);
@@ -159,32 +170,29 @@ useEffect(() => {
   }
 }, [viewMode]);
 
-const projects = getProjects();
-
-const getProjectColor = (projectId: string) => {
-  const project = projects.find((item) => item.id === projectId);
-  if (project?.color) return project.color;
-  const hash = [...projectId].reduce((value, character) => value + character.charCodeAt(0), 0);
-  const projectIndex = projects.findIndex((item) => item.id === projectId);
-  return PROJECT_COLORS[(projectIndex >= 0 ? projectIndex : hash) % PROJECT_COLORS.length].color;
+const getTaskColor = (taskId: string) => {
+  const task = tasks.find((item) => item.id === taskId);
+  if (task?.calendarColor) return task.calendarColor;
+  const hash = [...taskId].reduce((value, character) => value + character.charCodeAt(0), 0);
+  return PROJECT_COLORS[hash % PROJECT_COLORS.length].color;
 };
 
-const openProjectColorMenu = (e: React.MouseEvent, projectId: string) => {
+const openTaskColorMenu = (e: React.MouseEvent, taskId: string) => {
   e.preventDefault();
   e.stopPropagation();
-  setProjectColorMenu({
-    projectId,
+  setTaskColorMenu({
+    taskId,
     x: Math.min(e.clientX, window.innerWidth - 230),
     y: Math.min(e.clientY, window.innerHeight - 100),
   });
 };
 
-const changeProjectColor = (color: string) => {
-  if (!projectColorMenu) return;
-  const project = projects.find((item) => item.id === projectColorMenu.projectId);
-  if (!project) return;
-  updateProject({ ...project, color });
-  setProjectColorMenu(null);
+const changeTaskColor = (color: string) => {
+  if (!taskColorMenu) return;
+  const task = getTasks().find((item) => item.id === taskColorMenu.taskId);
+  if (!task) return;
+  updateTask({ ...task, calendarColor: color });
+  setTaskColorMenu(null);
   forceCalendarRefresh((value) => value + 1);
 };
 
@@ -680,6 +688,7 @@ const getEventLayout = (
   };
 
   const visibleWeekDays = viewMode === "day" ? [currentDate] : getWeekDays(currentDate);
+const localNowMinutes = localNow.getHours() * 60 + localNow.getMinutes();
 
 
   /*
@@ -1011,8 +1020,8 @@ className={[
                                     ? "calendar-task overdue"
                                     : "calendar-task"
                                 }
-                                style={{ backgroundColor: getProjectColor(task.projectId) }}
-                                onContextMenu={(e) => openProjectColorMenu(e, task.projectId)}
+                                style={{ backgroundColor: getTaskColor(task.id) }}
+                                onContextMenu={(e) => openTaskColorMenu(e, task.id)}
                               >
 
                                 <div
@@ -1182,8 +1191,8 @@ const dragPreviewStart = dragPreview?.time
                       key={event.id}
                       className={`week-unscheduled-event${dragPreview?.id === event.id ? " drag-source" : ""}`}
                       onPointerDown={(e) => startMove(e, event)}
-                      onContextMenu={(e) => openProjectColorMenu(e, task.projectId)}
-                      style={{ backgroundColor: getProjectColor(task.projectId) }}
+                      onContextMenu={(e) => openTaskColorMenu(e, task.id)}
+                      style={{ backgroundColor: getTaskColor(task.id) }}
                       title={`${step.title} · ${task.title}`}
                     >
                       {step.title}
@@ -1192,7 +1201,7 @@ const dragPreviewStart = dragPreview?.time
                   {dragPreview?.date === dateString && dragPreview.time === null && dragPreviewEntry && (
                     <div
                       className="week-unscheduled-event drag-preview"
-                      style={{ backgroundColor: getProjectColor(dragPreviewEntry.task.projectId) }}
+                      style={{ backgroundColor: getTaskColor(dragPreviewEntry.task.id) }}
                       aria-hidden="true"
                     >
                       {dragPreviewEntry.step.title}
@@ -1217,6 +1226,16 @@ const dragPreviewStart = dragPreview?.time
                 }
 
                 </div>
+
+                {dateString === getDateString(localNow) && (
+                  <div
+                    className="week-now-indicator"
+                    style={{ top: `${localNowMinutes + 44}px` }}
+                    aria-label={`Current local time: ${formatClockTime(localNowMinutes)}`}
+                  >
+                    <span>{formatClockTime(localNowMinutes)}</span>
+                  </div>
+                )}
 
 
                 {/* Calendar events */}
@@ -1265,7 +1284,7 @@ const dragPreviewStart = dragPreview?.time
   ].filter(Boolean).join(" ")}
 
   onPointerDown={(e) => startMove(e, event)}
-  onContextMenu={(e) => openProjectColorMenu(e, task.projectId)}
+  onContextMenu={(e) => openTaskColorMenu(e, task.id)}
 
   style={{
     top: `${start + 44}px`,
@@ -1276,7 +1295,7 @@ const dragPreviewStart = dragPreview?.time
       ? 50
       : sharesExactTime ? 3 + exactTimePeerIndex : 2 + column,
     opacity: dragPreview?.id === event.id ? 0.35 : 1,
-    backgroundColor: getProjectColor(task.projectId),
+    backgroundColor: getTaskColor(task.id),
   }}
 >
 
@@ -1319,7 +1338,7 @@ const dragPreviewStart = dragPreview?.time
       left: "4px",
       width: "calc(100% - 8px)",
       zIndex: 80,
-      backgroundColor: getProjectColor(dragPreviewEntry.task.projectId),
+      backgroundColor: getTaskColor(dragPreviewEntry.task.id),
     }}
     aria-hidden="true"
   >
@@ -1347,35 +1366,35 @@ const dragPreviewStart = dragPreview?.time
 
 }
 
-      {projectColorMenu && (
+      {taskColorMenu && (
         <div
           className="project-color-backdrop"
-          onPointerDown={() => setProjectColorMenu(null)}
+          onPointerDown={() => setTaskColorMenu(null)}
         >
           <div
             className="project-color-menu"
-            style={{ left: projectColorMenu.x, top: projectColorMenu.y }}
+            style={{ left: taskColorMenu.x, top: taskColorMenu.y }}
             onPointerDown={(e) => e.stopPropagation()}
             onContextMenu={(e) => e.preventDefault()}
           >
             <strong>
-              {projects.find((item) => item.id === projectColorMenu.projectId)?.name ?? "Project"}
+              {tasks.find((item) => item.id === taskColorMenu.taskId)?.title ?? "Task"}
             </strong>
-            <span className="project-color-prompt">Choose a project color</span>
+            <span className="project-color-prompt">Choose a task color</span>
             <div className="project-color-swatches">
               {PROJECT_COLORS.map(({ name, color }) => (
                 <button
                   key={name}
                   type="button"
-                  className={getProjectColor(projectColorMenu.projectId) === color ? "selected" : ""}
+                  className={getTaskColor(taskColorMenu.taskId) === color ? "selected" : ""}
                   style={{ backgroundColor: color }}
-                  aria-label={`${name} project color`}
+                  aria-label={`${name} task color`}
                   title={name}
-                  onClick={() => changeProjectColor(color)}
+                  onClick={() => changeTaskColor(color)}
                 />
               ))}
             </div>
-            <button type="button" onClick={() => setProjectColorMenu(null)}>
+            <button type="button" onClick={() => setTaskColorMenu(null)}>
               Done
             </button>
           </div>

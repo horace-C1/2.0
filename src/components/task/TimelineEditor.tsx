@@ -263,6 +263,7 @@ export default function TimelineEditor({
                 day={day}
                 defaultDate={getDateAtOffset(startDate, day.offset)}
                 showStepDates={showStepDates}
+                onAddDay={addDay}
 
                 autoFocusAllowed={autoFocusAllowed}
 

@@ -81,6 +81,8 @@ export interface Task {
 
   status: TaskStatus;
 
+  calendarColor?: string;
+
   timeline: Day[];
 
 }

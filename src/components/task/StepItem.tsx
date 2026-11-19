@@ -13,6 +13,8 @@ interface StepItemProps {
 
   onAddStep?: () => void;
 
+  onAddDay?: () => void;
+
   autoFocusAllowed?: boolean;
   defaultDate: string;
   showDateInput: boolean;
@@ -24,6 +26,7 @@ export default function StepItem({
   onUpdateStep,
   onDeleteStep,
   onAddStep,
+  onAddDay,
   autoFocusAllowed = true,
   defaultDate,
   showDateInput,
@@ -32,6 +35,7 @@ export default function StepItem({
 
   const inputRef =
   useRef<HTMLInputElement>(null);
+  const lastEmptyBackspaceAt = useRef(0);
 
   useEffect(() => {
 
@@ -46,6 +50,33 @@ export default function StepItem({
   const handleKeyDown = (
     e: React.KeyboardEvent<HTMLInputElement>
   ) => {
+
+    if (e.key === "Backspace" && step.title.length === 0) {
+      e.preventDefault();
+      const now = Date.now();
+      if (now - lastEmptyBackspaceAt.current <= 600) {
+        lastEmptyBackspaceAt.current = 0;
+        const previousInput = inputRef.current?.closest(".step-item")
+          ?.previousElementSibling?.querySelector<HTMLInputElement>(".step-title");
+        onDeleteStep(step.id);
+        window.requestAnimationFrame(() => previousInput?.focus());
+      } else {
+        lastEmptyBackspaceAt.current = now;
+      }
+      return;
+    }
+
+    if (e.key !== "Backspace") {
+      lastEmptyBackspaceAt.current = 0;
+    }
+
+    if (e.key === "Enter" && e.shiftKey && onAddDay) {
+      e.preventDefault();
+      e.stopPropagation();
+      onUpdateStep(step.id, { title: step.title.trim() });
+      onAddDay();
+      return;
+    }
 
     if (e.key === "Enter" && !e.ctrlKey && !e.shiftKey && !e.metaKey) {
 

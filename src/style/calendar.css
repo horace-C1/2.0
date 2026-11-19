@@ -388,6 +388,40 @@
   border-bottom: 1px solid #ddd;
 }
 
+.week-now-indicator {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 40;
+  background: #ef4444;
+  pointer-events: none;
+}
+
+.week-now-indicator::before {
+  position: absolute;
+  top: -4px;
+  left: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ef4444;
+  content: "";
+}
+
+.week-now-indicator > span {
+  position: absolute;
+  top: -10px;
+  left: 5px;
+  padding: 1px 4px;
+  border-radius: 3px;
+  color: #fff;
+  background: #ef4444;
+  font-size: 0.62rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 
 /* =========================
    Week events

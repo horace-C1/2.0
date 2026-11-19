@@ -17,6 +17,8 @@ interface DayCardProps {
 
   showStepDates: boolean;
 
+  onAddDay?: () => void;
+
 }
 
 
@@ -26,6 +28,7 @@ export default function DayCard({
   autoFocusAllowed,
   defaultDate,
   showStepDates,
+  onAddDay,
 }: DayCardProps) {
 
 
@@ -102,6 +105,7 @@ export default function DayCard({
             step={step}
             defaultDate={defaultDate}
             showDateInput={showStepDates}
+            onAddDay={onAddDay}
             autoFocusAllowed={autoFocusAllowed}
             onUpdateStep={
               updateStep
